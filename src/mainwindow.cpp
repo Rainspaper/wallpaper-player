@@ -357,6 +357,15 @@ void MainWindow::onScanFinished()
 {
     m_model->setItems(m_scanner->items());
     m_filterPanel->setTags(m_scanner->allTags());
+
+    // collect unique ratings from scanned data
+    QSet<QString> ratings;
+    for (const auto &item : m_scanner->items()) {
+        if (!item.contentRating.isEmpty())
+            ratings.insert(item.contentRating);
+    }
+    m_filterPanel->setRatings(ratings.values());
+
     onFiltersChanged();
 }
 
@@ -469,6 +478,7 @@ void MainWindow::onManageDirectories()
     if (m_scanPaths.isEmpty()) {
         m_model->setItems({});
         m_filterPanel->setTags({});
+        m_filterPanel->setRatings({});
         onFiltersChanged();
     } else {
         onRefresh();

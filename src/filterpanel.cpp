@@ -84,31 +84,14 @@ FilterPanel::FilterPanel(QWidget *parent)
     root->addWidget(makeSection(this, "分 级"));
 
     m_ratingGroup = new QButtonGroup(this);
-    auto addRating = [&](const QString &text, const QString &value) {
-        Q_UNUSED(value);
-        auto *rb = new QRadioButton(text);
-        rb->setStyleSheet(
-            "QRadioButton {"
-            "  color:#bbb; font-size:12px; spacing:8px;"
-            "  padding:3px 0;"
-            "}"
-            "QRadioButton::indicator {"
-            "  width:14px; height:14px; border-radius:7px;"
-            "  border:2px solid #4a4a4e; background:#1e1e22;"
-            "}"
-            "QRadioButton::indicator:hover { border-color:#666; }"
-            "QRadioButton::indicator:checked {"
-            "  background:#5a8; border-color:#5a8;"
-            "}");
-        m_ratingGroup->addButton(rb, root->count());
-        root->addWidget(rb);
-        connect(rb, &QRadioButton::toggled,
-                this, &FilterPanel::filtersChanged);
-    };
-    addRating("全部", "All");
-    addRating("Everyone", "Everyone");
-    addRating("Mature", "Mature");
-    m_ratingGroup->buttons().first()->setChecked(true);
+    m_ratingContainer = new QWidget;
+    m_ratingContainer->setLayout(new QVBoxLayout);
+    m_ratingContainer->layout()->setContentsMargins(0, 0, 0, 0);
+    m_ratingContainer->layout()->setSpacing(0);
+    root->addWidget(m_ratingContainer);
+
+    // start with just "全部" — setRatings() will add the rest
+    setRatings({});
 
     root->addWidget(makeSep(this));
 
@@ -185,6 +168,55 @@ void FilterPanel::setTags(const QStringList &tags)
         // indicator globally and rely on the item text + check state.
         m_tagList->addItem(item);
     }
+}
+
+void FilterPanel::setRatings(const QStringList &ratings)
+{
+    // clear old radio buttons
+    for (auto *b : m_ratingGroup->buttons()) {
+        m_ratingGroup->removeButton(b);
+        delete b;
+    }
+
+    auto rbStyle = QString(
+        "QRadioButton {"
+        "  color:#bbb; font-size:12px; spacing:8px;"
+        "  padding:3px 0;"
+        "}"
+        "QRadioButton::indicator {"
+        "  width:14px; height:14px; border-radius:7px;"
+        "  border:2px solid #4a4a4e; background:#1e1e22;"
+        "}"
+        "QRadioButton::indicator:hover { border-color:#666; }"
+        "QRadioButton::indicator:checked {"
+        "  background:#5a8; border-color:#5a8;"
+        "}");
+
+    auto *lay = qobject_cast<QVBoxLayout*>(m_ratingContainer->layout());
+
+    auto addRb = [&](const QString &text, const QString &val) {
+        Q_UNUSED(val);
+        auto *rb = new QRadioButton(text);
+        rb->setStyleSheet(rbStyle);
+        m_ratingGroup->addButton(rb);
+        lay->addWidget(rb);
+        connect(rb, &QRadioButton::toggled,
+                this, &FilterPanel::filtersChanged);
+    };
+
+    addRb("全部", "All");
+
+    // collect unique non-empty ratings, sorted
+    QStringList unique;
+    for (const auto &r : ratings) {
+        if (!r.isEmpty() && !unique.contains(r))
+            unique.append(r);
+    }
+    unique.sort(Qt::CaseInsensitive);
+    for (const auto &r : unique)
+        addRb(r, r);
+
+    m_ratingGroup->buttons().first()->setChecked(true);
 }
 
 QString FilterPanel::searchText() const

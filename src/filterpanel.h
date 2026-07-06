@@ -14,8 +14,9 @@ public:
     explicit FilterPanel(QWidget *parent = nullptr);
 
     void setTags(const QStringList &tags);
+    void setRatings(const QStringList &ratings);
     QString searchText() const;
-    QString selectedRating() const; // "All", "Everyone", "Mature"
+    QString selectedRating() const;
     QStringList selectedTags() const;
 
     void updateResultCount(int visible, int total);
@@ -26,6 +27,7 @@ signals:
 private:
     QLineEdit   *m_searchEdit;
     QButtonGroup *m_ratingGroup;
+    QWidget     *m_ratingContainer = nullptr;
     QListWidget *m_tagList;
     QLabel      *m_countLabel;
 };
