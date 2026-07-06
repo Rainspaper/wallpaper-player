@@ -15,9 +15,11 @@
 #include <QScreen>
 #include <QMessageBox>
 #include <QProcess>
-#include <QDir>
 #include <QScrollBar>
 #include <QTimer>
+#include <QSettings>
+#include <QFileDialog>
+#include <QInputDialog>
 
 // ─── WallpaperModel ──────────────────────────────────────────────
 
@@ -112,10 +114,48 @@ bool WallpaperFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     return true;
 }
 
+// ─── Auto-detect Steam / Wallpaper Engine directories ────────────
+
+static QStringList autoDetectWallpaperDirs()
+{
+    QStringList found;
+    QStringList candidates;
+
+#ifdef Q_OS_WIN
+    // 1. Try registry (Steam install path)
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        wchar_t buf[MAX_PATH];
+        DWORD size = sizeof(buf);
+        if (RegQueryValueExW(hKey, L"SteamPath", nullptr, nullptr, (LPBYTE)buf, &size) == ERROR_SUCCESS) {
+            QString steamPath = QString::fromWCharArray(buf);
+            // Registry stores paths with forward slashes
+            steamPath.replace('/', '\\');
+            candidates << (steamPath + "\\steamapps\\workshop\\content\\431960");
+        }
+        RegCloseKey(hKey);
+    }
+#endif
+
+    // 2. Common default install paths
+    candidates << "C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\431960"
+               << "C:\\Program Files\\Steam\\steamapps\\workshop\\content\\431960"
+               << "D:\\Steam\\steamapps\\workshop\\content\\431960"
+               << "D:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\431960"
+               << "E:\\Steam\\steamapps\\workshop\\content\\431960";
+
+    for (const auto &c : candidates) {
+        QDir d(c);
+        if (d.exists() && !found.contains(c))
+            found << QDir::toNativeSeparators(c);
+    }
+
+    return found;
+}
+
 // ─── MainWindow ──────────────────────────────────────────────────
 
-static const QString kScanPath =
-    QStringLiteral("E:/Apps/PlayGame/steam/steamapps/workshop/content/431960");
+static const QString kSettingsKey = "WallpaperPlayer/scanPaths";
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -127,6 +167,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     // dark theme
     setStyleSheet("QMainWindow { background:#1e1e22; }");
+
+    // load persisted scan paths (empty on first run — user adds via UI)
+    QSettings s;
+    m_scanPaths = s.value(kSettingsKey).toStringList();
 
     setupUI();
     loadData();
@@ -142,46 +186,79 @@ void MainWindow::setupUI()
 
     // ── top bar (always visible) ─────────────────────────
     auto *topBar = new QWidget;
-    topBar->setFixedHeight(38);
-    topBar->setStyleSheet("background:#25252a;");
+    topBar->setFixedHeight(40);
+    topBar->setStyleSheet("background:#1e1e22;");
     auto *topL = new QHBoxLayout(topBar);
-    topL->setContentsMargins(6, 4, 8, 4);
-    topL->setSpacing(4);
+    topL->setContentsMargins(8, 4, 10, 4);
+    topL->setSpacing(6);
 
-    auto btnStyle = QString(
-        "QPushButton { background:#2a2a2e; border:none; border-radius:6px; "
-        "padding:4px 10px; color:#aaa; font-size:13px; }"
-        "QPushButton:hover { background:#3a3a3e; color:#fff; }");
+    auto baseBtn = QString(
+        "QPushButton {"
+        "  background:#2c2c30; border:none; border-radius:6px;"
+        "  padding:4px 12px; color:#bbb; font-size:12px;"
+        "}"
+        "QPushButton:hover { background:#3a3a40; color:#fff; }"
+        "QPushButton:pressed { background:#222226; color:#999; }");
 
-    m_toggleBtn = new QPushButton("☰  隐藏");
+    // ── view controls ──
+    m_toggleBtn = new QPushButton("☰ 隐藏");
     m_toggleBtn->setFixedHeight(28);
-    m_toggleBtn->setStyleSheet(btnStyle);
+    m_toggleBtn->setStyleSheet(baseBtn);
     m_toggleBtn->setToolTip("切换筛选面板");
     connect(m_toggleBtn, &QPushButton::clicked, this, &MainWindow::toggleDrawer);
     topL->addWidget(m_toggleBtn);
 
-    auto *refreshBtn = new QPushButton("🔄 刷新");
+    // small visual separator
+    auto *sep1 = new QFrame;
+    sep1->setFixedSize(1, 20);
+    sep1->setStyleSheet("background:#333;");
+    topL->addWidget(sep1);
+
+    // ── directory actions ──
+    auto *refreshBtn = new QPushButton("⟳ 刷新");
     refreshBtn->setFixedHeight(28);
-    refreshBtn->setCursor(Qt::PointingHandCursor);
     refreshBtn->setStyleSheet(
         "QPushButton {"
-        "  background:#2a2a2e; border:1px solid #3a3a3e; border-radius:6px;"
-        "  padding:4px 12px; color:#aaa; font-size:13px;"
+        "  background:#2c2c30; border:none; border-radius:6px;"
+        "  padding:4px 14px; color:#bbb; font-size:12px;"
         "}"
-        "QPushButton:hover {"
-        "  background:#2e3a33; border-color:#3a6a4e; color:#8dcaa0;"
-        "}"
-        "QPushButton:pressed {"
-        "  background:#1e2a23; border-color:#2a5a3e; color:#6aaa80;"
-        "}");
-    refreshBtn->setToolTip("重新扫描目录");
+        "QPushButton:hover { background:#2e3a33; color:#8dcaa0; }"
+        "QPushButton:pressed { background:#1e2a23; color:#6aaa80; }");
+    refreshBtn->setToolTip("重新扫描所有壁纸目录");
     connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::onRefresh);
     topL->addWidget(refreshBtn);
+
+    auto *detectBtn = new QPushButton("⟐ 自动检测");
+    detectBtn->setFixedHeight(28);
+    detectBtn->setStyleSheet(baseBtn);
+    detectBtn->setToolTip("自动扫描本机 Steam Wallpaper Engine 目录");
+    connect(detectBtn, &QPushButton::clicked, this, &MainWindow::onAutoDetect);
+    topL->addWidget(detectBtn);
+
+    auto *addDirBtn = new QPushButton("+ 添加目录");
+    addDirBtn->setFixedHeight(28);
+    addDirBtn->setStyleSheet(
+        "QPushButton {"
+        "  background:#2c2c30; border:1px dashed #444; border-radius:6px;"
+        "  padding:4px 14px; color:#bbb; font-size:12px;"
+        "}"
+        "QPushButton:hover { border-color:#5a8; color:#8dcaa0; }"
+        "QPushButton:pressed { border-color:#3a6; color:#6aaa80; }");
+    addDirBtn->setToolTip("手动选择壁纸目录");
+    connect(addDirBtn, &QPushButton::clicked, this, &MainWindow::onAddDirectory);
+    topL->addWidget(addDirBtn);
+
+    auto *dirMgrBtn = new QPushButton("管理");
+    dirMgrBtn->setFixedHeight(28);
+    dirMgrBtn->setStyleSheet(baseBtn);
+    dirMgrBtn->setToolTip("查看/删除已添加的目录");
+    connect(dirMgrBtn, &QPushButton::clicked, this, &MainWindow::onManageDirectories);
+    topL->addWidget(dirMgrBtn);
 
     topL->addStretch();
 
     auto *titleLabel = new QLabel("Wallpaper Player");
-    titleLabel->setStyleSheet("color:#666; font-size:12px;");
+    titleLabel->setStyleSheet("color:#555; font-size:12px;");
     topL->addWidget(titleLabel);
 
     rootLayout->addWidget(topBar);
@@ -254,13 +331,25 @@ void MainWindow::loadData()
 
     connect(m_filterPanel, &FilterPanel::filtersChanged, this, &MainWindow::onFiltersChanged);
 
-    // scan in background
-    m_scanner->setScanPath(kScanPath);
+    if (m_scanPaths.isEmpty()) {
+        // first run — try auto-detect, else prompt manually
+        m_scanPaths = autoDetectWallpaperDirs();
+        if (!m_scanPaths.isEmpty()) {
+            QSettings().setValue(kSettingsKey, m_scanPaths);
+        } else {
+            onAddDirectory();
+            return;
+        }
+    }
+
+    // scan all directories
+    m_scanner->setScanPaths(m_scanPaths);
     m_scanner->scan();
 }
 
 void MainWindow::onRefresh()
 {
+    m_scanner->setScanPaths(m_scanPaths);
     m_scanner->scan();
 }
 
@@ -323,7 +412,96 @@ void MainWindow::toggleDrawer()
     m_drawerAnim->start(QAbstractAnimation::KeepWhenStopped);
 
     m_drawerOpen = !m_drawerOpen;
-    m_toggleBtn->setText(m_drawerOpen ? "☰  隐藏" : "☰  展开");
+    m_toggleBtn->setText(m_drawerOpen ? "☰ 隐藏" : "☰ 展开");
+}
+
+void MainWindow::onAddDirectory()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, "选择壁纸目录");
+    if (dir.isEmpty()) return;
+
+    if (!m_scanPaths.contains(dir)) {
+        m_scanPaths.append(dir);
+        QSettings().setValue(kSettingsKey, m_scanPaths);
+        onRefresh();
+    }
+}
+
+void MainWindow::onManageDirectories()
+{
+    if (m_scanPaths.isEmpty()) {
+        m_scanPaths.append(
+            QFileDialog::getExistingDirectory(this, "选择壁纸目录"));
+        if (m_scanPaths.isEmpty()) return;
+        QSettings().setValue(kSettingsKey, m_scanPaths);
+        onRefresh();
+        return;
+    }
+
+    // show a menu with current paths; click to remove
+    QMenu menu(this);
+    menu.setStyleSheet(
+        "QMenu { background:#2a2a2e; border:1px solid #3a3a3e; padding:4px; }"
+        "QMenu::item { padding:6px 24px; color:#ccc; font-size:13px; }"
+        "QMenu::item:hover { background:#3a3a3e; color:#fff; }");
+
+    for (int i = 0; i < m_scanPaths.size(); ++i) {
+        auto *action = menu.addAction(QString("✕  %1").arg(m_scanPaths[i]));
+        action->setData(i);
+    }
+    menu.addSeparator();
+    menu.addAction("+ 添加目录");
+
+    auto *chosen = menu.exec(QCursor::pos());
+    if (!chosen) return;
+
+    if (chosen->text().startsWith("✕")) {
+        int idx = chosen->data().toInt();
+        m_scanPaths.removeAt(idx);
+    } else {
+        QString dir = QFileDialog::getExistingDirectory(this, "选择壁纸目录");
+        if (dir.isEmpty()) return;
+        if (!m_scanPaths.contains(dir))
+            m_scanPaths.append(dir);
+    }
+
+    QSettings().setValue(kSettingsKey, m_scanPaths);
+    if (m_scanPaths.isEmpty()) {
+        m_model->setItems({});
+        m_filterPanel->setTags({});
+        onFiltersChanged();
+    } else {
+        onRefresh();
+    }
+}
+
+void MainWindow::onAutoDetect()
+{
+    auto found = autoDetectWallpaperDirs();
+    if (found.isEmpty()) {
+        QMessageBox::information(this, "自动检测",
+            "未检测到 Steam / Wallpaper Engine 目录。\n"
+            "请手动添加壁纸目录。");
+        return;
+    }
+
+    // merge found paths that aren't already in the list
+    bool changed = false;
+    for (const auto &p : found) {
+        if (!m_scanPaths.contains(p)) {
+            m_scanPaths.append(p);
+            changed = true;
+        }
+    }
+    if (!changed) {
+        QMessageBox::information(this, "自动检测",
+            "已检测到目录:\n" + found.join("\n") +
+            "\n\n这些目录已在列表中。");
+        return;
+    }
+
+    QSettings().setValue(kSettingsKey, m_scanPaths);
+    onRefresh();
 }
 
 void MainWindow::onItemDoubleClicked(const QModelIndex &index)

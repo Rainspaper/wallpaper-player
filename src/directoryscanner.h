@@ -10,7 +10,7 @@ class DirectoryScanner : public QObject {
 public:
     explicit DirectoryScanner(QObject *parent = nullptr);
 
-    void setScanPath(const QString &path);
+    void setScanPaths(const QStringList &paths);
     void scan(); // synchronous; call from a worker thread or at startup
 
     const QVector<WallpaperData> &items() const { return m_items; }
@@ -18,11 +18,12 @@ public:
 
 signals:
     void scanFinished();
+    void scanProgress(int done, int total);
     void scanError(const QString &message);
 
 private:
     WallpaperData parseJson(const QString &dirPath);
-    QString m_scanPath;
+    QStringList m_scanPaths;
     QVector<WallpaperData> m_items;
 };
 

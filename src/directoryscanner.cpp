@@ -11,27 +11,41 @@ DirectoryScanner::DirectoryScanner(QObject *parent)
 {
 }
 
-void DirectoryScanner::setScanPath(const QString &path)
+void DirectoryScanner::setScanPaths(const QStringList &paths)
 {
-    m_scanPath = path;
+    m_scanPaths = paths;
 }
 
 void DirectoryScanner::scan()
 {
     m_items.clear();
 
-    QDir baseDir(m_scanPath);
-    if (!baseDir.exists()) {
-        emit scanError("目录不存在: " + m_scanPath);
+    if (m_scanPaths.isEmpty()) {
+        emit scanFinished();
         return;
     }
 
-    const auto entries = baseDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-    for (const auto &info : entries) {
-        WallpaperData item = parseJson(info.absoluteFilePath());
-        if (!item.id.isEmpty() && item.videoFile.endsWith(".mp4", Qt::CaseInsensitive)) {
-            m_items.append(item);
+    int done = 0, total = m_scanPaths.size();
+    for (const auto &path : m_scanPaths) {
+        ++done;
+
+        QDir baseDir(path);
+        if (!baseDir.exists()) {
+            qWarning() << "Dir not found:" << path;
+            emit scanError(QString::fromUtf8("目录不存在: ") + path);
+            emit scanProgress(done, total);
+            continue;
         }
+
+        const auto entries = baseDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+        for (const auto &info : entries) {
+            WallpaperData item = parseJson(info.absoluteFilePath());
+            if (!item.id.isEmpty() && item.videoFile.endsWith(".mp4", Qt::CaseInsensitive)) {
+                m_items.append(item);
+            }
+        }
+
+        emit scanProgress(done, total);
     }
 
     emit scanFinished();

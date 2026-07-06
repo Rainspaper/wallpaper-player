@@ -7,6 +7,7 @@
 #include <QPropertyAnimation>
 #include <QSortFilterProxyModel>
 #include <QVector>
+#include <QStringList>
 #include "wallpaperdata.h"
 #include "directoryscanner.h"
 #include "filterpanel.h"
@@ -52,6 +53,9 @@ private slots:
     void onFiltersChanged();
     void toggleDrawer();
     void onRefresh();
+    void onAddDirectory();
+    void onManageDirectories();
+    void onAutoDetect();
     void onItemDoubleClicked(const QModelIndex &index);
     void onContextMenu(const QPoint &pos);
     void updateVisibleGifs();
@@ -76,6 +80,7 @@ private:
     WallpaperModel      *m_model      = nullptr;
     WallpaperFilterModel *m_filter    = nullptr;
     GifDispatcher       *m_gifDisp    = nullptr;
+    QStringList          m_scanPaths;
 };
 
 #endif // MAINWINDOW_H
