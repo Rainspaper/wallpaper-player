@@ -526,7 +526,7 @@ void MainWindow::onAutoDetect()
     onRefresh();
 }
 
-static const QString kGitUrl = "https://github.com/Rainspaper/wallpaper-player";
+static const QString kGitUrl = "https://github.com/Rainspaper/Local-view-Wallpaper";
 
 void MainWindow::onAbout()
 {
