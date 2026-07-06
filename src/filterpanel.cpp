@@ -159,11 +159,19 @@ FilterPanel::FilterPanel(QWidget *parent)
 
 void FilterPanel::setTags(const QStringList &tags)
 {
+    // save checked state
+    QStringList checked;
+    for (int i = 0; i < m_tagList->count(); ++i) {
+        auto *item = m_tagList->item(i);
+        if (item->checkState() == Qt::Checked)
+            checked << item->text();
+    }
+
     m_tagList->clear();
     for (const auto &tag : tags) {
         auto *item = new QListWidgetItem(tag);
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(Qt::Unchecked);
+        item->setCheckState(checked.contains(tag) ? Qt::Checked : Qt::Unchecked);
         // Custom checkbox styling via delegate is overkill; we style the
         // indicator globally and rely on the item text + check state.
         m_tagList->addItem(item);
@@ -172,6 +180,9 @@ void FilterPanel::setTags(const QStringList &tags)
 
 void FilterPanel::setRatings(const QStringList &ratings)
 {
+    // save previously selected rating
+    QString prev = selectedRating();
+
     // clear old radio buttons
     for (auto *b : m_ratingGroup->buttons()) {
         m_ratingGroup->removeButton(b);
@@ -216,7 +227,20 @@ void FilterPanel::setRatings(const QStringList &ratings)
     for (const auto &r : unique)
         addRb(r, r);
 
-    m_ratingGroup->buttons().first()->setChecked(true);
+    // restore previous selection
+    auto *firstBtn = m_ratingGroup->buttons().first();
+    bool restored = false;
+    if (prev != "All") {
+        for (auto *b : m_ratingGroup->buttons()) {
+            if (b->text() == prev) {
+                b->setChecked(true);
+                restored = true;
+                break;
+            }
+        }
+    }
+    if (!restored)
+        firstBtn->setChecked(true);
 }
 
 QString FilterPanel::searchText() const
