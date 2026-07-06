@@ -255,6 +255,18 @@ void MainWindow::setupUI()
     connect(dirMgrBtn, &QPushButton::clicked, this, &MainWindow::onManageDirectories);
     topL->addWidget(dirMgrBtn);
 
+    auto *sep2 = new QFrame;
+    sep2->setFixedSize(1, 20);
+    sep2->setStyleSheet("background:#333;");
+    topL->addWidget(sep2);
+
+    auto *aboutBtn = new QPushButton("关于");
+    aboutBtn->setFixedHeight(28);
+    aboutBtn->setStyleSheet(baseBtn);
+    aboutBtn->setToolTip("关于 Wallpaper Player");
+    connect(aboutBtn, &QPushButton::clicked, this, &MainWindow::onAbout);
+    topL->addWidget(aboutBtn);
+
     topL->addStretch();
 
     auto *titleLabel = new QLabel("Wallpaper Player");
@@ -512,6 +524,21 @@ void MainWindow::onAutoDetect()
 
     QSettings().setValue(kSettingsKey, m_scanPaths);
     onRefresh();
+}
+
+static const QString kGitUrl = "https://github.com/Rainspaper/wallpaper-player";
+
+void MainWindow::onAbout()
+{
+    QMessageBox box(this);
+    box.setWindowTitle("关于 Wallpaper Player");
+    box.setText("<b>Wallpaper Player</b> v1.0");
+    box.setInformativeText(
+        QString("一个轻量的 Wallpaper Engine 壁纸浏览器。<br><br>"
+                "<a href='%1' style='color:#5a8;'>%1</a>")
+            .arg(kGitUrl));
+    box.setIcon(QMessageBox::Information);
+    box.exec();
 }
 
 void MainWindow::onItemDoubleClicked(const QModelIndex &index)

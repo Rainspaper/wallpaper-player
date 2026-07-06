@@ -56,6 +56,7 @@ private slots:
     void onAddDirectory();
     void onManageDirectories();
     void onAutoDetect();
+    void onAbout();
     void onItemDoubleClicked(const QModelIndex &index);
     void onContextMenu(const QPoint &pos);
     void updateVisibleGifs();
