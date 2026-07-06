@@ -1,8 +1,8 @@
 # Wallpaper Player
 
-为了方便快速看下载的视频，你懂的。
+为了方便快速看**Wallpaper**下载的视频，你懂的。
 
-一个轻量的 Wallpaper Engine 壁纸浏览器，直接扫描 Steam 工坊目录，展示所有壁纸的预览和描述，双击即可播放。
+一个轻量的 Wallpaper Engine 壁纸浏览器，直接扫描 Steam 工坊目录，展示所有壁纸的预览和描述，**双击即可播放**。
 
 ## 功能
 
