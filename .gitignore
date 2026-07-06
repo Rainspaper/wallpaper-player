@@ -1,0 +1,19 @@
+# OpenCode 本地配置 / 项目级 Skills（不上传）
+.opencode/
+
+# OpenCode 对话记录
+conversations/
+
+# OpenCode 工作文件
+.sisyphus/
+
+# Qt / qmake 构建产物
+release/
+debug/
+Makefile
+Makefile.Release
+Makefile.Debug
+.qmake.stash
+
+# qmake 从 RC_ICONS 自动生成的 .rc 文件（不要在 git 里跟踪,每次 qmake 重新生成）
+WallpaperPlayer_resource.rc
