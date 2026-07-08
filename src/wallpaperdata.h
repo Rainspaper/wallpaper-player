@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QStringList>
+#include <QDateTime>
 
 struct WallpaperData {
     QString id;             // numeric folder name
@@ -13,6 +14,7 @@ struct WallpaperData {
     QString videoFile;
     QString previewFile;
     QString dirPath;        // full path to the item folder
+    QDateTime downloadTime; // when project.json was last modified
 
     QString videoPath()  const { return dirPath + "/" + videoFile; }
     QString previewPath() const { return dirPath + "/" + previewFile; }

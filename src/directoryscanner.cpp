@@ -1,10 +1,12 @@
 #include "directoryscanner.h"
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
+#include <algorithm>
 
 DirectoryScanner::DirectoryScanner(QObject *parent)
     : QObject(parent)
@@ -48,6 +50,12 @@ void DirectoryScanner::scan()
         emit scanProgress(done, total);
     }
 
+    // sort newest first by download time
+    std::sort(m_items.begin(), m_items.end(),
+        [](const WallpaperData &a, const WallpaperData &b) {
+            return a.downloadTime > b.downloadTime;
+        });
+
     emit scanFinished();
 }
 
@@ -86,6 +94,10 @@ WallpaperData DirectoryScanner::parseJson(const QString &dirPath)
     data.videoFile  = obj["file"].toString();
     data.previewFile= obj["preview"].toString();
     data.dirPath    = dirPath;
+
+    // use project.json's mtime as download time
+    QFileInfo fi(file);
+    data.downloadTime = fi.lastModified();
 
     const QJsonArray tagArr = obj["tags"].toArray();
     for (const auto &t : tagArr)
