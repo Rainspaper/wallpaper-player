@@ -21,3 +21,6 @@ WallpaperPlayer_resource.rc
 # windeployqt 打包输出
 WallpaperPlayer-Package/
 WallpaperPlayer-Package.zip
+
+# 打包输出
+releases/
